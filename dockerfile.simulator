@@ -1,0 +1,14 @@
+# ใช้ Python เวอร์ชันเบาๆ
+FROM python:3.9-slim
+
+RUN apt-get update && apt-get install -y supervisor
+
+RUN pip install paho-mqtt
+
+WORKDIR /app
+
+COPY sim_*.py ./
+
+COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]

@@ -1,0 +1,90 @@
+version: '3.8'
+
+services:
+  mqtt:
+    image: eclipse-mosquitto:latest
+    container_name: mqtt-broker
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - ./config/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - ./data:/mosquitto/data
+      - ./log:/mosquitto/log
+    restart: always
+    networks:
+      - monitoring_network
+
+  influxdb:
+    image: influxdb:2.7-alpine
+    container_name: influxdb
+    ports:
+      - "8086:8086"
+    volumes:
+      - influxdb_data:/var/lib/influxdb2
+      - influxdb_config:/etc/influxdb2
+    environment:
+        - DOCKER_INFLUXDB_INIT_MODE=setup
+        - DOCKER_INFLUXDB_INIT_ORG=VCUniv
+        - DOCKER_INFLUXDB_INIT_BUCKET=sensor_data
+        - DOCKER_INFLUXDB_INIT_USERNAME=${INFLUXDB_USER}
+        - DOCKER_INFLUXDB_INIT_PASSWORD=${INFLUXDB_PASS}
+        - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=${INFLUXDB_TOKEN}
+    restart: unless-stopped
+    networks:
+      - monitoring_network
+
+  grafana:
+    image: grafana/grafana:12.2.0
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./grafana/datasources/datasource.yml:/etc/grafana/provisioning/datasources/datasource.yml
+      - ./grafana/dashboards/dashboard.yml:/etc/grafana/provisioning/dashboards/dashboard.yml
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
+      - grafana_data:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASS}
+      - INFLUXDB_TOKEN=${INFLUXDB_TOKEN}
+    depends_on:
+      - influxdb
+    restart: unless-stopped
+    networks:
+      - monitoring_network
+  telegraf:
+    image: telegraf:latest
+    container_name: telegraf
+    restart: unless-stopped
+    volumes:
+      - ./telegraf.conf:/etc/telegraf/telegraf.conf:ro
+    environment:
+      - INFLUX_TOKEN=${INFLUXDB_TOKEN}
+    depends_on:
+      - mqtt
+      - influxdb
+    networks:
+      - monitoring_network
+
+  Smarthome:
+    build:
+      context: .
+      dockerfile: dockerfile.simulator
+    image: smart-home-sim
+    container_name: py_sim
+    ports: 
+      - "9997:9997"
+    depends_on:
+      - mqtt
+    networks:
+      - monitoring_network
+
+volumes:
+  influxdb_data:
+  influxdb_config:
+  grafana_data:
+
+networks:
+  monitoring_network:
+    driver: bridge

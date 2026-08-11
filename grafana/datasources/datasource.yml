@@ -1,0 +1,14 @@
+apiVersion: 1
+datasources:
+  - name: InfluxDB
+    uid: efuktf2z227eod
+    type: influxdb
+    access: proxy
+    url: http://influxdb:8086
+    isDefault: true
+    jsonData:
+      version: Flux
+      organization: VCUniv
+      defaultBucket: sensor_data
+    secureJsonData:
+      token: "$__env{INFLUXDB_TOKEN}"
